@@ -13,3 +13,5 @@ The training and test set samples used for this work were generated using the re
 
 # Usage
 To train the model, run the ```main.py``` file:
+```python main.py
+```

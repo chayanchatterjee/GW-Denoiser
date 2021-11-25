@@ -11,8 +11,9 @@ This code is written in Python and uses the [TensorFlow 2](https://www.tensorflo
 # Sample Generation
 The training and test set samples used for this work were generated using the repository [damonbeveridge/samplegen](https://github.com/damonbeveridge/samplegen), which adds additional features to the sample generation code written by Timothy Gebhard and Niki Kilbertus described in the paper [Convolutional neural networks: A magic bullet for gravitational-wave detection?](https://journals.aps.org/prd/abstract/10.1103/PhysRevD.100.063015) 
 
-# Usage
+# Training the network
 To train the model, simply run the ```main.py``` file:
 ```
 python main.py
 ```
+The hyperparameters of the network and the training processes can be set 

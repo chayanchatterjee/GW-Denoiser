@@ -16,4 +16,4 @@ To train the model, simply run the ```main.py``` file:
 ```
 python main.py
 ```
-The hyperparameters of the network and the training processes can be set 
+The hyperparameters of the network and the training processes can be set in the file: ```configs/config.py```

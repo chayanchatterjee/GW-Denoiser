@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Author: Chayan Chatterjee
-# Last modified: 26.11.2021
+# Last modified: 26th November 2021
 
 """Model config in json format"""
 

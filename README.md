@@ -16,4 +16,4 @@ To train the model, simply run the ```main.py``` file:
 ```
 python main.py
 ```
-The hyperparameters of the network and the training processes can be set in the file: ```configs/config.py```
+The hyperparameters of the network architecture and training parameters can be set in the file: ```configs/config.py```. In this work, we have used a custom loss function called the FracTAL Tanimoto loss function, first implemented in [Diakogiannis at. al. (2021)](https://www.mdpi.com/2072-4292/13/18/3707).

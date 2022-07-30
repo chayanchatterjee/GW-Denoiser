@@ -14,27 +14,27 @@ class DataLoader:
         self.det = det
         self.data = data
        
-    def load_data(data_config):
+    def load_data(self, data_config):
         """Loads dataset from path"""
         
         # Check training or testing data
         if(self.data == 'train'):
-            df = h5py.File(data_config.data.path_train, 'r')
+            df = h5py.File(data_config.path_train, 'r')
         elif(self.data == 'test'):
-            df = h5py.File(data_config.data.path_test, 'r')
+            df = h5py.File(data_config.path_test, 'r')
         
         # Obtain data for a given detector
         if(self.det == 'Hanford'):
-            strain = df['injection_samples']['h1_strain']
-            signal = df['injection_samples']['h1_signal']
+            strain = df['injection_samples']['h1_strain'][0:10]
+            signal = df['injection_parameters']['h1_signal'][0:10]
             
         elif(self.det == 'Livingston'):
-            strain = df['injection_samples']['l1_strain']
-            signal = df['injection_samples']['l1_signal']
+            strain = df['injection_samples']['l1_strain'][0:10]
+            signal = df['injection_parameters']['l1_signal'][0:10]
             
         elif(self.det == 'Virgo'):
-            strain = df['injection_samples']['v1_strain']
-            signal = df['injection_samples']['v1_signal']
+            strain = df['injection_samples']['v1_strain'][0:10]
+            signal = df['injection_parameters']['v1_signal'][0:10]
             
         else:
             sys.exit('Detector not available. Quitting.')

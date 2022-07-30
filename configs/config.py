@@ -6,13 +6,13 @@
 
 CFG = {
     "data": {
-        "path_train": "../BBH_sample_files/default_snr.hdf",
-        "path_test": "../BBH_sample_files/default_snr-20_test.hdf",
+        "path_train": "/fred/oz016/Chayan/BBH_sample_files/default_snr.hdf",
+        "path_test": "/fred/oz016/Chayan/BBH_sample_files/default_snr-20_test.hdf",
         
         
     },
     "train": {
-        "num_training_samples": 100000,
+        "num_training_samples": 50000,
         "num_test_samples": 25,
         "detector": 'Hanford', # 'Hanford'/'Livingston'/'Virgo'
         "n_samples_per_signal": 512,
@@ -20,7 +20,7 @@ CFG = {
         "epoches": 100,
         "depth": 0,
         "train_from_checkpoint": False,
-        "checkpoint_path": '/fred/oz016/Chayan/GW-Denoiser/checkpoints/Saved_checkpoint/tmp_0x6513d638/ckpt-1', # if train_from_checkpoint == True
+        "checkpoint_path": '/fred/oz016/Chayan/GW-Denoiser/checkpoints/Saved_checkpoint/tmp_0xeb8a7700/ckpt-1', # if train_from_checkpoint == True
         "optimizer": {
             "type": "adam"
         },
@@ -35,8 +35,8 @@ CFG = {
             "LSTM_layer_3": 50,
             "Output_layer": 1,
             "kernel_size": 1,
-            "pool_size": 2
+            "pool_size": 2,
+            "learning_rate": 1e-3
         },
-    "learning_rate": 1e-3
     }
 }

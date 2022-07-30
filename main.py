@@ -11,7 +11,7 @@ def run():
     model.load_data()
 #    model.load_test_data()
     model.build()
-    model.train()
+#    model.train()
     model.evaluate()
 
 

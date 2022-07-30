@@ -21,7 +21,7 @@
  *
 '''
 
-# standard library
+####################################################### IMPORTS #################################################################
 
 # internal
 from .base_model import BaseModel
@@ -52,23 +52,26 @@ from dataloader.dataloader import DataLoader
 import tensorflow as tf
 #tf.enable_eager_execution()
 
-device_type = 'GPU'
-n_gpus = 2
-devices = tf.config.experimental.list_physical_devices(
-          device_type)
-devices_names = [d.name.split('e:')[1] for d in devices]
-strategy = tf.distribute.MirroredStrategy(
-           devices=devices_names[:n_gpus])
+#device_type = 'GPU'
+#n_gpus = 2
+#devices = tf.config.experimental.list_physical_devices(
+#          device_type)
+#devices_names = [d.name.split('e:')[1] for d in devices]
+#strategy = tf.distribute.MirroredStrategy(
+#           devices=devices_names[:n_gpus])
 
 
 import numpy as np
 import pandas as pd
 
 from scipy import signal
-import random as ran
+import random
+import os
 from tensorflow.keras import backend as K
 
 import h5py
+
+#################################################################################################################################
 
 
 class CNN_LSTM(BaseModel):
@@ -82,15 +85,15 @@ class CNN_LSTM(BaseModel):
         self.epochs = self.config.train.epoches
         self.det = self.config.train.detector
         self.depth = self.config.train.depth
-        self.lr = self.config.learning_rate
+        self.lr = self.config.model.layers.learning_rate
         
-        self.cnn_filters_1 = self.config.layers.CNN_layer_1
-        self.cnn_filters_2 = self.config.layers.CNN_layer_2
-        self.lstm_1 = self.config.layers.lstm_1
-        self.lstm_2 = self.config.layers.lstm_2
-        self.lstm_3 = self.config.layers.lstm_3
-        self.kernel_size= self.config.layers.kernel_size
-        self.pool_size = self.config.layers.pool_size
+        self.cnn_filters_1 = self.config.model.layers.CNN_layer_1
+        self.cnn_filters_2 = self.config.model.layers.CNN_layer_2
+        self.lstm_1 = self.config.model.layers.LSTM_layer_1
+        self.lstm_2 = self.config.model.layers.LSTM_layer_2
+        self.lstm_3 = self.config.model.layers.LSTM_layer_3
+        self.kernel_size= self.config.model.layers.kernel_size
+        self.pool_size = self.config.model.layers.pool_size
         self.train_from_checkpoint = self.config.train.train_from_checkpoint
         self.checkpoint_path = self.config.train.checkpoint_path
         
@@ -101,23 +104,23 @@ class CNN_LSTM(BaseModel):
         self.strain_train, self.signal_train = DataLoader(self.det, 'train').load_data(self.config.data)
         self.strain_test, self.signal_test = DataLoader(self.det, 'test').load_data(self.config.data)
         
-        # Pre-process data
+        # Scale the amplitudes of the signals to lie between -1 and 1
         self.strain_train = self._preprocess_data(self.strain_train, self.num_train, self.n_samples)
         self.signal_train = self._preprocess_data(self.signal_train, self.num_train, self.n_samples)
         
         self.strain_test = self._preprocess_data(self.strain_test, self.num_test, self.n_samples)
         self.signal_test = self._preprocess_data(self.signal_test, self.num_test, self.n_samples)
 
-        # Reshape data
+        # Reshape data into overlapping sequences
         self.X_train_noisy, self.X_train_pure = self.reshape_sequences(self.num_train, self.strain_train, self.signal_train)
         self.X_test_noisy, self.X_test_pure = self.reshape_sequences(self.num_test, self.signal_test, self.signal_test)
         
-        # Reshape data for Keras
+        # Print the shapes of the arrays
         self.reshape_and_print()
         
         
     def _preprocess_data(self, data, num, samples):
-        """ Normalizes training and test set signals """
+        """ Scales the amplitudes of training and test set signals """
         
         new_array = np.zeros((num,samples))
 
@@ -172,7 +175,8 @@ class CNN_LSTM(BaseModel):
 #        self.X_test_noisy = self.X_test_noisy.reshape(self.X_test_noisy.shape[0], 516, 4, 1)
 #        self.X_train_pure = self.X_train_pure.reshape(self.X_train_pure.shape[0], 516, 1)
 #        self.X_test_pure = self.X_test_pure.reshape(self.X_test_pure.shape[0], 516, 1)
-
+        
+        # Reshape arrays to fit into Keras model
         self.X_train_noisy = self.X_train_noisy[:,:,:,None]
         self.X_test_noisy = self.X_test_noisy[:,:,:,None]
         self.X_train_pure = self.X_train_pure[:,:,None]
@@ -189,7 +193,8 @@ class CNN_LSTM(BaseModel):
         self.X_train_pure = self.X_train_pure.astype("float32")
         self.X_test_pure = self.X_test_pure.astype("float32")
 
-    def fractal_tanimoto_loss(y_true, y_pred, depth=None, smooth=1e-6):
+    def fractal_tanimoto_loss(self, y_true, y_pred, depth=None, smooth=1e-6):
+        """ Defining FracTAL Tanimoto loss function """
         x = y_true
         y = y_pred
         
@@ -231,35 +236,39 @@ class CNN_LSTM(BaseModel):
         return  1. - result
 
     def build(self):
+        
         """ Builds and compiles the model """
-        with strategy.scope():
-            self.model = tf.keras.Sequential()
+#        with strategy.scope():
+        
+        self.model = tf.keras.Sequential()
             
-            self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Conv1D(self.cnn_filters_1,self.kernel_size, padding='same'),input_shape=(self.X_train_noisy.shape[1:])))
+        self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Conv1D(self.cnn_filters_1,self.kernel_size, padding='same'),input_shape=(self.X_train_noisy.shape[1:])))
             
-            self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Activation('tanh')))
+        self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Activation('tanh')))
             
-            self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.MaxPooling1D(pool_size=self.pool_size, padding='same')))
+        self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.MaxPooling1D(pool_size=self.pool_size, padding='same')))
             
-            self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Conv1D(self.cnn_filters_2, self.kernel_size, padding='same')))
+        self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Conv1D(self.cnn_filters_2, self.kernel_size, padding='same')))
             
-            self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Activation('tanh')))
+        self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Activation('tanh')))
             
-            self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten()))
+        self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten()))
             
-            self.model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(self.lstm_1, activation = 'tanh',kernel_initializer='glorot_normal', return_sequences=True)))
+        self.model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(self.lstm_1, activation = 'tanh',kernel_initializer='glorot_normal', return_sequences=True)))
             
-            self.model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(self.lstm_2, activation = 'tanh',kernel_initializer='glorot_normal', return_sequences=True)))
+        self.model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(self.lstm_2, activation = 'tanh',kernel_initializer='glorot_normal', return_sequences=True)))
             
-            self.model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(self.lstm_3, activation = 'tanh', kernel_initializer='glorot_normal', return_sequences=True)))
+        self.model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(self.lstm_3, activation = 'tanh', kernel_initializer='glorot_normal', return_sequences=True)))
             
-            self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(1)))
+        self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(1)))
             
-            optimizer = tf.keras.optimizers.Adam(lr=self.lr)
-            self.model.compile(optimizer=optimizer,loss=fractal_tanimoto_loss,metrics=['accuracy'])
+        optimizer = tf.keras.optimizers.Adam(lr=self.lr)
+        self.model.compile(optimizer=optimizer,loss=self.fractal_tanimoto_loss,metrics=['accuracy'])
     
+    ##########
         self.model.summary()
         
+        checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=self.model)
         self.train(checkpoint)
            
     def train(self, checkpoint):
@@ -279,7 +288,7 @@ class CNN_LSTM(BaseModel):
         
         checkpoint.save(file_prefix=checkpoint_prefix)
         
-        self.model.save("model/trained_model.h5")
+        self.model.save("/fred/oz016/Chayan/GW-Denoiser/model/trained_model.h5")
 #        print("Saved model to disk")
 
         self.plot_loss_curves(model_history.history['loss'], model_history.history['val_loss'])
@@ -293,18 +302,19 @@ class CNN_LSTM(BaseModel):
         plt.plot(val_loss, "r", label="Loss on test data")
         plt.ylabel('Loss')
         plt.xlabel('Epoch')
+        plt.legend()
         
-        plt.savefig("evaluation/Accuracy_curve.png", dpi=200)
+        plt.savefig("/fred/oz016/Chayan/GW-Denoiser/evaluation/Accuracy_curve.png", dpi=200)
                                        
                                        
     def evaluate(self):
-        """Predicts resuts for the test dataset"""
+        """Predicts results for the test dataset"""
 #        predictions = []
         predictions = self.model.predict(self.X_test_noisy)
         
         score = self.model.evaluate(self.X_test_noisy, self.X_test_pure, verbose=1)
         
-        f1 = h5py.File('evaluation/results_snr_20.hdf', 'w')
+        f1 = h5py.File('/fred/oz016/Chayan/GW-Denoiser/evaluation/results_snr_20.hdf', 'w')
         f1.create_dataset('denoised_signals', data=predictions)
         f1.create_dataset('pure_signals', data=self.X_test_pure)
         

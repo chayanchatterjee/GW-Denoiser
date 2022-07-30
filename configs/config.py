@@ -15,7 +15,7 @@ CFG = {
         "num_training_samples": 50000,
         "num_test_samples": 25,
         "detector": 'Hanford', # 'Hanford'/'Livingston'/'Virgo'
-        "n_samples_per_signal": 512,
+        "n_samples_per_signal": 512, # 0.25 sec signals are used sampled at 2048 Hz
         "batch_size": 1000,
         "epoches": 100,
         "depth": 0,

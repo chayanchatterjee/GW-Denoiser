@@ -66,6 +66,7 @@ import pandas as pd
 
 from scipy import signal
 import random as ran
+from tensorflow.keras import backend as K
 
 import h5py
 
@@ -188,11 +189,12 @@ class CNN_LSTM(BaseModel):
         self.X_train_pure = self.X_train_pure.astype("float32")
         self.X_test_pure = self.X_test_pure.astype("float32")
 
-        
-    from keras import backend as K
-    def fractal_tanimoto_loss(self, y_true, y_pred, depth=self.depth, smooth=1e-6):
+    def fractal_tanimoto_loss(y_true, y_pred, depth=None, smooth=1e-6):
         x = y_true
         y = y_pred
+        
+        if depth is None:
+            depth = self.depth            
         
         depth = self.depth+1
         scale = 1./len(range(depth))
@@ -254,7 +256,7 @@ class CNN_LSTM(BaseModel):
             self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(1)))
             
             optimizer = tf.keras.optimizers.Adam(lr=self.lr)
-            self.model.compile(optimizer=optimizer,loss=self.fractal_tanimoto_loss,metrics=['accuracy'])
+            self.model.compile(optimizer=optimizer,loss=fractal_tanimoto_loss,metrics=['accuracy'])
     
         self.model.summary()
         

@@ -37,6 +37,6 @@ CFG = {
             "kernel_size": 1,
             "pool_size": 2
         },
-        "learning_rate": 1e-3
+    "learning_rate": 1e-3
     }
 }

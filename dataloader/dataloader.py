@@ -19,9 +19,9 @@ class DataLoader:
         
         # Check training or testing data
         if(self.data == 'train'):
-            df = h5py.File('../BBH_sample_files/default_snr.hdf', 'r')
+            df = h5py.File(data_config.data.path_train, 'r')
         elif(self.data == 'test'):
-            df = h5py.File('../BBH_sample_files/default_snr-20_test.hdf', 'r')
+            df = h5py.File(data_config.data.path_test, 'r')
         
         # Obtain data for a given detector
         if(self.det == 'Hanford'):

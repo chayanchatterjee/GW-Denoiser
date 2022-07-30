@@ -3,52 +3,44 @@
 
 from SampleFileTools1 import SampleFile
 import pandas as pd
+import h5py
+import sys
 
 class DataLoader:
     """Data Loader class"""
-
-    @staticmethod
+    
+    def __init__(self, det, data):
+        
+        self.det = det
+        self.data = data
+       
     def load_data(data_config):
         """Loads dataset from path"""
         
-        obj = SampleFile()
-        obj.read_hdf(data_config.path_train)
-        train_dataset = obj.as_dataframe(True,True,True,False) #creating the dataframe from the hdf file.
+        # Check training or testing data
+        if(self.data == 'train'):
+            df = h5py.File('../BBH_sample_files/default_snr.hdf', 'r')
+        elif(self.data == 'test'):
+            df = h5py.File('../BBH_sample_files/default_snr-20_test.hdf', 'r')
         
-        obj.read_hdf(data_config.path_test_1)
-        df_test_1 = obj.as_dataframe(True,True,True,False) #creating the dataframe from the hdf file
-
-        obj.read_hdf(data_config.path_test_2)
-        df_test_2 = obj.as_dataframe(True,True,True,False) #creating the dataframe from the hdf file
-
-        obj.read_hdf(data_config.path_test_3)
-        df_test_3 = obj.as_dataframe(True,True,True,False) #creating the dataframe from the hdf file
-
-        obj.read_hdf(data_config.path_test_4)
-        df_test_4 = obj.as_dataframe(True,True,True,False) #creating the dataframe from the hdf file
-
-        obj.read_hdf(data_config.path_test_5)
-        df_test_5 = obj.as_dataframe(True,True,True,False) #creating the dataframe from the hdf file
-
-        obj.read_hdf(data_config.path_test_6)
-        df_test_6 = obj.as_dataframe(True,True,True,False) #creating the dataframe from the hdf file
-
-        obj.read_hdf(data_config.path_test_7)
-        df_test_7 = obj.as_dataframe(True,True,True,False) #creating the dataframe from the hdf file
-
-        obj.read_hdf(data_config.path_test_8)
-        df_test_8 = obj.as_dataframe(True,True,True,False) #creating the dataframe from the hdf file
-
-        obj.read_hdf(data_config.path_test_9)
-        df_test_9 = obj.as_dataframe(True,True,True,False) #creating the dataframe from the hdf file.
-
-        obj.read_hdf(data_config.path_test_10)
-        df_test_10 = obj.as_dataframe(True,True,True,False) #creating the dataframe from the hdf file.
-
-        test_dataset = pd.concat([df_test_1, df_test_2, df_test_3, df_test_4, df_test_5, df_test_6, df_test_7, df_test_8, df_test_9, df_test_10], ignore_index= True)
-
+        # Obtain data for a given detector
+        if(self.det == 'Hanford'):
+            strain = df['injection_samples']['h1_strain']
+            signal = df['injection_samples']['h1_signal']
+            
+        elif(self.det == 'Livingston'):
+            strain = df['injection_samples']['l1_strain']
+            signal = df['injection_samples']['l1_signal']
+            
+        elif(self.det == 'Virgo'):
+            strain = df['injection_samples']['v1_strain']
+            signal = df['injection_samples']['v1_signal']
+            
+        else:
+            sys.exit('Detector not available. Quitting.')
         
+        df.close()
         
-        return train_dataset, test_dataset
+        return strain, signal
     
     

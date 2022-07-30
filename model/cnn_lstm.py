@@ -47,6 +47,7 @@ from sklearn import preprocessing
 from sklearn.preprocessing import OneHotEncoder
 from numpy import array
 
+from dataloader.dataloader import DataLoader
 
 import tensorflow as tf
 #tf.enable_eager_execution()
@@ -66,6 +67,8 @@ import pandas as pd
 from scipy import signal
 import random as ran
 
+import h5py
+
 
 class CNN_LSTM(BaseModel):
     """CNN_LSTM Model Class"""
@@ -73,61 +76,61 @@ class CNN_LSTM(BaseModel):
         super().__init__(config)
         self.num_train = self.config.train.num_training_samples
         self.num_test = self.config.train.num_test_samples
+        self.n_samples = self.config.train.n_samples_per_signal
         self.batch_size = self.config.train.batch_size
         self.epochs = self.config.train.epoches
+        self.det = self.config.train.detector
+        self.depth = self.config.train.depth
+        self.lr = self.config.learning_rate
         
+        self.cnn_filters_1 = self.config.layers.CNN_layer_1
+        self.cnn_filters_2 = self.config.layers.CNN_layer_2
+        self.lstm_1 = self.config.layers.lstm_1
+        self.lstm_2 = self.config.layers.lstm_2
+        self.lstm_3 = self.config.layers.lstm_3
+        self.kernel_size= self.config.layers.kernel_size
+        self.pool_size = self.config.layers.pool_size
+        self.train_from_checkpoint = self.config.train.train_from_checkpoint
+        self.checkpoint_path = self.config.train.checkpoint_path
         
     def load_data(self):
         """Loads and Preprocess data """
-        self.train_dataset, self.test_dataset = DataLoader().load_data(self.config.data)
-        
-        #self.train_dataset = DataLoader().load_train_data(self.config.data)
-        #self.test_dataset = DataLoader().load_test_data(self.config.data)
-        
-        # Load data
-        h1 = self.train_dataset['h1_strain'] 
-        h1_test = self.test_dataset['h1_strain']
-
-        h1_pure = self.train_dataset['h1_signal']
-        h1_test_pure = self.test_dataset['h1_signal']
+                
+        # Load training data
+        self.strain_train, self.signal_train = DataLoader(self.det, 'train').load_data(self.config.data)
+        self.strain_test, self.signal_test = DataLoader(self.det, 'test').load_data(self.config.data)
         
         # Pre-process data
-        self.h1_new = self._preprocess_data(h1)
-        self.h1_test_new = self._preprocess_data(h1_test)
-
-        self.h1_pure_new = self._preprocess_data(h1_pure)
-        self.h1_test_pure_new = self._preprocess_data(h1_test_pure)
+        self.strain_train = self._preprocess_data(self.strain_train, self.num_train, self.n_samples)
+        self.signal_train = self._preprocess_data(self.signal_train, self.num_train, self.n_samples)
         
+        self.strain_test = self._preprocess_data(self.strain_test, self.num_test, self.n_samples)
+        self.signal_test = self._preprocess_data(self.signal_test, self.num_test, self.n_samples)
+
         # Reshape data
-        self.X_train_noisy, self.X_train_pure = self.reshape_sequences(self.num_train, self.h1_new, self.h1_pure_new)
-        self.X_test_noisy, self.X_test_pure = self.reshape_sequences(self.num_test, self.h1_pure_new, self.h1_test_pure_new)
+        self.X_train_noisy, self.X_train_pure = self.reshape_sequences(self.num_train, self.strain_train, self.signal_train)
+        self.X_test_noisy, self.X_test_pure = self.reshape_sequences(self.num_test, self.signal_test, self.signal_test)
         
         # Reshape data for Keras
         self.reshape_and_print()
         
         
-    def _preprocess_data(self, data):
+    def _preprocess_data(self, data, num, samples):
         """ Normalizes training and test set signals """
-        arr = []
-        for i in range(len(data)):
-            samples = data[i]
-            samples = samples[1536:2048]
-            maximum = np.max(samples)
-            minimum = np.abs(np.min(samples))
-            for j in range(512):
-                if(samples[j] > 0):
-                    samples[j] = samples[j]/maximum
-                else:
-                    samples[j] = samples[j]/minimum
-            arr.append(samples)
-        return arr
         
-# Only for plotting and comparing. Uncomment this for glitch
-#h1_test_glitch_pure_new = normalize_test_glitch_new(h1_test_pure_new)
+        new_array = np.zeros((num,samples))
 
-# split a univariate sequence into samples
+        for i in range(num):
+            new_array[i][np.where(data[i]>0)] = data[i][data[i]>0]/(np.max(data, axis=1)[i])
+            new_array[i][np.where(data[i]<0)] = data[i][data[i]<0]/abs(np.min(data, axis=1)[i])
+        
+        return new_array
+        
+        
+# Split a univariate sequence into samples
     def split_sequence(self,sequence_noisy,sequence_pure,n_steps):
-        X, y = list(), list()
+        X = [] 
+        y = []
         for i in range(len(sequence_noisy)):
             # find the end of this pattern
             end_ix = i + n_steps
@@ -164,36 +167,34 @@ class CNN_LSTM(BaseModel):
         
     def reshape_and_print(self):
         
-        self.X_train_noisy = self.X_train_noisy.reshape(self.X_train_noisy.shape[0], 516, 4, 1)
-        self.X_test_noisy = self.X_test_noisy.reshape(self.X_test_noisy.shape[0], 516, 4, 1)
-        self.X_train_pure = self.X_train_pure.reshape(self.X_train_pure.shape[0], 516, 1)
-        self.X_test_pure = self.X_test_pure.reshape(self.X_test_pure.shape[0], 516, 1)
+#        self.X_train_noisy = self.X_train_noisy.reshape(self.X_train_noisy.shape[0], 516, 4, 1)
+#        self.X_test_noisy = self.X_test_noisy.reshape(self.X_test_noisy.shape[0], 516, 4, 1)
+#        self.X_train_pure = self.X_train_pure.reshape(self.X_train_pure.shape[0], 516, 1)
+#        self.X_test_pure = self.X_test_pure.reshape(self.X_test_pure.shape[0], 516, 1)
+
+        self.X_train_noisy = self.X_train_noisy[:,:,:,None]
+        self.X_test_noisy = self.X_test_noisy[:,:,:,None]
+        self.X_train_pure = self.X_train_pure[:,:,None]
+        self.X_test_pure = self.X_test_pure[:,:,None]
         
         print('x_train_noisy shape:', self.X_train_noisy.shape)
         print('x_test_noisy shape:', self.X_test_noisy.shape)
         print('x_train_pure shape:', self.X_train_pure.shape)
         print('x_test_pure shape:', self.X_test_pure.shape)
 
-        # Convert type for Keras otherwise Keras cannot process the data
         self.X_train_noisy = self.X_train_noisy.astype("float32")
-
         self.X_test_noisy = self.X_test_noisy.astype("float32")
 
-        # Convert type for Keras otherwise Keras cannot process the data
         self.X_train_pure = self.X_train_pure.astype("float32")
-
         self.X_test_pure = self.X_test_pure.astype("float32")
 
         
     from keras import backend as K
-    def fractal_tanimoto_loss(self, y_true, y_pred, depth=0, smooth=1e-6):
+    def fractal_tanimoto_loss(self, y_true, y_pred, depth=self.depth, smooth=1e-6):
         x = y_true
         y = y_pred
-#    x_norm = K.sum(x)
-#    y_norm = K.sum(y)
-#    x = x/x_norm
-#    y = y/y_norm
-        depth = depth+1
+        
+        depth = self.depth+1
         scale = 1./len(range(depth))
     
         def inner_prod(y, x):
@@ -217,67 +218,95 @@ class CNN_LSTM(BaseModel):
                 b = -(2.*a-1.)
 
                 denum = denum + tf.math.reciprocal( a*(tpp+tll) + b *tpl + smooth)
-    #            denum = ( a*(tpp+tll) + b *tpl + smooth)
-    #            result = K.mean((result + (num/denum)), axis=0)
-
+                
             result =  num * denum * scale
 
             return  result*scale
     
     
-        l1 = tnmt_base(x,y)
-#        l2 = self.tnmt_base(1.-preds, 1.-labels)
-
-#        result = 0.5*(l1+l2)
-        result = l1
-    
+        result = tnmt_base(x,y)
+        
         return  1. - result
 
     def build(self):
-        """ Builds the Keras model based """
+        """ Builds and compiles the model """
         with strategy.scope():
             self.model = tf.keras.Sequential()
-            self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Conv1D(32,1, padding='same'),input_shape=(516,4,1)))
+            
+            self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Conv1D(self.cnn_filters_1,self.kernel_size, padding='same'),input_shape=(self.X_train_noisy.shape[1:])))
+            
             self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Activation('tanh')))
-            self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.MaxPooling1D(pool_size=2, padding='same')))
-            self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Conv1D(16,1, padding='same')))
+            
+            self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.MaxPooling1D(pool_size=self.pool_size, padding='same')))
+            
+            self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Conv1D(self.cnn_filters_2, self.kernel_size, padding='same')))
+            
             self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Activation('tanh')))
+            
             self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten()))
-            self.model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(50, activation = 'tanh',kernel_initializer='glorot_normal', return_sequences=True)))
-            self.model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(50, activation = 'tanh',kernel_initializer='glorot_normal', return_sequences=True)))
-            self.model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(50, activation = 'tanh', kernel_initializer='glorot_normal', return_sequences=True)))
+            
+            self.model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(self.lstm_1, activation = 'tanh',kernel_initializer='glorot_normal', return_sequences=True)))
+            
+            self.model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(self.lstm_2, activation = 'tanh',kernel_initializer='glorot_normal', return_sequences=True)))
+            
+            self.model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(self.lstm_3, activation = 'tanh', kernel_initializer='glorot_normal', return_sequences=True)))
+            
             self.model.add(tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(1)))
             
-            optimizer = tf.keras.optimizers.Adam(lr=0.001)
-            self.model.compile(optimizer=optimizer,loss='mse',metrics=['accuracy'])
+            optimizer = tf.keras.optimizers.Adam(lr=self.lr)
+            self.model.compile(optimizer=optimizer,loss=self.fractal_tanimoto_loss,metrics=['accuracy'])
     
         self.model.summary()
         
+        self.train(checkpoint)
            
-    def train(self):
-        """Compiles and trains the model"""
-    #        self.model.compile(optimizer=self.config.train.optimizer.type,
-    #                           loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-    #                           metrics=self.config.train.metrics)
+    def train(self, checkpoint):
+        """Trains the model"""
+        
+        # initialize checkpoints
+        dataset_name = "/fred/oz016/Chayan/GW-Denoiser/checkpoints/Saved_checkpoint"
+        checkpoint_directory = "{}/tmp_{}".format(dataset_name, str(hex(random.getrandbits(32))))
+        checkpoint_prefix = os.path.join(checkpoint_directory, "ckpt")
+        
+        # load best model with min validation loss
+        if(self.train_from_checkpoint == True):
+            checkpoint.restore(self.checkpoint_path)
 
         model_history = self.model.fit(self.X_train_noisy, self.X_train_pure, epochs=self.epochs, batch_size=self.batch_size,
                                        validation_data=(self.X_test_noisy,self.X_test_pure))
+        
+        checkpoint.save(file_prefix=checkpoint_prefix)
+        
+        self.model.save("model/trained_model.h5")
+#        print("Saved model to disk")
 
-        return model_history.history['loss'], model_history.history['val_loss']
+        self.plot_loss_curves(model_history.history['loss'], model_history.history['val_loss'])
+        
+    
+    def plot_loss_curves(self, loss, val_loss):
+    
+        # summarize history for accuracy and loss
+        plt.figure(figsize=(6, 4))
+        plt.plot(loss, "r--", label="Loss on training data")
+        plt.plot(val_loss, "r", label="Loss on test data")
+        plt.ylabel('Loss')
+        plt.xlabel('Epoch')
+        
+        plt.savefig("evaluation/Accuracy_curve.png", dpi=200)
                                        
                                        
     def evaluate(self):
         """Predicts resuts for the test dataset"""
-        predictions = []
-        predictions.append(self.model.predict(self.X_test_noisy))
-        #decoded_signals = decoded_signals.reshape(-1,512,1)
-        #decoded_signals = normalize_decoded_new(decoded_signals)
-
+#        predictions = []
+        predictions = self.model.predict(self.X_test_noisy)
+        
         score = self.model.evaluate(self.X_test_noisy, self.X_test_pure, verbose=1)
-
+        
+        f1 = h5py.File('evaluation/results_snr_20.hdf', 'w')
+        f1.create_dataset('denoised_signals', data=predictions)
+        f1.create_dataset('pure_signals', data=self.X_test_pure)
+        
         print('\nAccuracy on test data: %0.2f' % score[1])
         print('\nLoss on test data: %0.2f' % score[0])
-
-        return predictions 
 
     

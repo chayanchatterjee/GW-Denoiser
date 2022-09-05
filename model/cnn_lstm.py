@@ -119,17 +119,32 @@ class CNN_LSTM(BaseModel):
         self.reshape_and_print()
         
         
-    def _preprocess_data(self, data, num, samples):
-        """ Scales the amplitudes of training and test set signals """
+#    def _preprocess_data(self, data, num, samples):
+#        """ Scales the amplitudes of training and test set signals """
         
-        new_array = np.zeros((num,samples))
+#        new_array = np.zeros((num,samples))
 
+#        for i in range(num):
+#            new_array[i][np.where(data[i]>0)] = data[i][data[i]>0]/(np.max(data, axis=1)[i])
+#            new_array[i][np.where(data[i]<0)] = data[i][data[i]<0]/abs(np.min(data, axis=1)[i])
+        
+#        return new_array
+
+    def _preprocess_data(self, data, num, samples):
+        rescaled_data = []
         for i in range(num):
-            new_array[i][np.where(data[i]>0)] = data[i][data[i]>0]/(np.max(data, axis=1)[i])
-            new_array[i][np.where(data[i]<0)] = data[i][data[i]<0]/abs(np.min(data, axis=1)[i])
-        
-        return new_array
-        
+            dataset = data[i]
+            maximum = np.max(dataset)
+            minimum = np.abs(np.min(dataset))
+            for j in range(samples):
+                if(dataset[j] > 0):
+                    dataset[j] = dataset[j]/maximum
+                else:
+                    dataset[j] = dataset[j]/minimum
+            rescaled_data.append(dataset)
+        return rescaled_data
+
+
         
 # Split a univariate sequence into samples
     def split_sequence(self,sequence_noisy,sequence_pure,n_steps):
